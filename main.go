@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-type Sitemapindex struct {
+type SiteMapIndex struct {
 	Locations []string `xml:"sitemap>loc"`
 }
 
@@ -23,22 +23,29 @@ type NewsMap struct {
 }
 
 func main() {
-	var s Sitemapindex
+	var s SiteMapIndex
 	var n News
+
 	resp, _ := http.Get("https://www.washingtonpost.com/news-sitemap-index.xml")
 	bytes, _ := ioutil.ReadAll(resp.Body)
 	xml.Unmarshal(bytes, &s)
 	newsMap := make(map[string]NewsMap)
 
 	for _, Location := range s.Locations {
-		resp, _ := http.Get(Location)
-		bytes, _ := ioutil.ReadAll(resp.Body)
-		xml.Unmarshal(bytes, &n)
+
+		if resp, err := http.Get(Location); err == nil {
+			if bytes, err := ioutil.ReadAll(resp.Body); err == nil {
+				xml.Unmarshal(bytes, &n)
+			}
+		} else {
+			fmt.Println("shit happens : %s", err)
+		}
 
 		for idx := range n.Keywords {
 			newsMap[n.Titles[idx]] = NewsMap{n.Keywords[idx], n.Locations[idx]}
 		}
 	}
+
 	for idx, data := range newsMap {
 		fmt.Println("\n\n\n\n\n",idx)
 		fmt.Println("\n",data.Keyword)

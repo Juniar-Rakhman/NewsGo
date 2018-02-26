@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-type SiteMapIndex struct {
+type SiteMapLocation struct {
 	Locations []string `xml:"sitemap>loc"`
 }
 
@@ -23,7 +23,7 @@ type NewsMap struct {
 	Location string
 }
 
-type NewsAggPage struct {
+type NewsPage struct {
 	Title string
 	News  map[string]NewsMap
 }
@@ -33,12 +33,17 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func newsAggHandler(w http.ResponseWriter, _ *http.Request) {
-	var s SiteMapIndex
+	var s SiteMapLocation
 	var n News
 
-	resp, _ := http.Get("https://www.washingtonpost.com/news-sitemap-index.xml")
-	bytes, _ := ioutil.ReadAll(resp.Body)
-	xml.Unmarshal(bytes, &s)
+	if resp, err := http.Get("https://www.washingtonpost.com/news-sitemap-index.xml"); err == nil {
+		if bytes, err := ioutil.ReadAll(resp.Body); err == nil {
+			xml.Unmarshal(bytes, &s)
+		}
+	} else {
+		fmt.Println("shit happens : %s", err)
+	}
+
 	newsMap := make(map[string]NewsMap)
 
 	for _, Location := range s.Locations {
@@ -56,12 +61,13 @@ func newsAggHandler(w http.ResponseWriter, _ *http.Request) {
 		}
 	}
 
-	p := NewsAggPage{Title: "Amazing News Aggregator", News: newsMap}
+	p := NewsPage{Title: "Go News", News: newsMap}
 	t, _ := template.ParseFiles("web/news.html")
 	t.Execute(w, p)
 }
 
 func main() {
+	fmt.Println("Running on http://localhost:8000/agg...")
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/agg/", newsAggHandler)
 	http.ListenAndServe(":8000", nil)

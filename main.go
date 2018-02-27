@@ -6,9 +6,10 @@ import (
 	"html/template"
 	"io/ioutil"
 	"net/http"
+	"sync"
 )
 
-type SiteMapLocation struct {
+type siteMap struct {
 	Locations []string `xml:"sitemap>loc"`
 }
 
@@ -28,12 +29,14 @@ type NewsPage struct {
 	News  map[string]NewsMap
 }
 
+var wg sync.WaitGroup
+
 func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprintf(w, "Go index")
 }
 
-func newsAggHandler(w http.ResponseWriter, _ *http.Request) {
-	var s SiteMapLocation
+func newsHandler(w http.ResponseWriter, _ *http.Request) {
+	var s siteMap
 	var n News
 
 	if resp, err := http.Get("https://www.washingtonpost.com/news-sitemap-index.xml"); err == nil {
@@ -67,8 +70,8 @@ func newsAggHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func main() {
-	fmt.Println("Running on http://localhost:8000/agg...")
+	fmt.Println("Serving http://localhost:8000/news/")
 	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/agg/", newsAggHandler)
+	http.HandleFunc("/news/", newsHandler)
 	http.ListenAndServe(":8000", nil)
 }

@@ -37,30 +37,40 @@ func indexHandler(w http.ResponseWriter, _ *http.Request) {
 
 func newsHandler(w http.ResponseWriter, _ *http.Request) {
 	var s siteMap
-	var n News
+	newsMap := make(map[string]NewsMap)
+	newsChan := make(chan News, 30)
 
 	if resp, err := http.Get("https://www.washingtonpost.com/news-sitemap-index.xml"); err == nil {
 		if bytes, err := ioutil.ReadAll(resp.Body); err == nil {
 			xml.Unmarshal(bytes, &s)
 		}
+		resp.Body.Close()
 	} else {
 		fmt.Println("shit happens : %s", err)
 	}
 
-	newsMap := make(map[string]NewsMap)
-
 	for _, Location := range s.Locations {
-
-		if resp, err := http.Get(Location); err == nil {
-			if bytes, err := ioutil.ReadAll(resp.Body); err == nil {
-				xml.Unmarshal(bytes, &n)
+		wg.Add(1)
+		go func() {
+			var n News
+			if resp, err := http.Get(Location); err == nil {
+				if bytes, err := ioutil.ReadAll(resp.Body); err == nil {
+					xml.Unmarshal(bytes, &n)
+				}
+				resp.Body.Close()
+			} else {
+				fmt.Println("shit happens : %s", err)
 			}
-		} else {
-			fmt.Println("shit happens : %s", err)
-		}
+			newsChan <- n
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	close(newsChan)
 
-		for idx := range n.Keywords {
-			newsMap[n.Titles[idx]] = NewsMap{n.Keywords[idx], n.Locations[idx]}
+	for elem := range newsChan {
+		for i := range elem.Keywords {
+			newsMap[elem.Titles[i]] = NewsMap{elem.Keywords[i], elem.Locations[i]}
 		}
 	}
 
